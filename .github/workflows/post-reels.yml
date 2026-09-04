@@ -1,0 +1,46 @@
+name: Post SHIVHOM reels (2/day, peak IST slots)
+
+on:
+  schedule:
+    # 7:30 AM IST (morning puja-time scroll) = 02:00 UTC
+    - cron: "0 2 * * *"
+    # 8:00 PM IST (evening aarti-time scroll) = 14:30 UTC
+    - cron: "30 14 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: post-reels
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install -r scripts/requirements.txt
+
+      - name: Post next reel(s)
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          FULL_SONG_URL: ${{ vars.FULL_SONG_URL }}
+          REELS_PER_RUN: "1"
+        run: python scripts/post_reels.py
+
+      - name: Commit updated posting state
+        run: |
+          git config user.name "reel-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add posted.json
+          git diff --cached --quiet || git commit -m "chore: update posted.json [skip ci]"
+          git push
